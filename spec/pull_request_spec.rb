@@ -1,21 +1,12 @@
 require 'git-process/pull_request'
 require 'github_test_helper'
+require 'pull_request_helper'
 require 'GitRepoHelper'
+
 
 describe GitProc::PullRequest do
   include GitRepoHelper
   include GitHubTestHelper
-
-  WebMock.reset!
-
-  HEAD_REMOTE = 'testrepo'
-  HEAD_REPO = 'test_repo'
-  HEAD_BRANCH = 'test_branch'
-  BASE_BRANCH = 'source_branch'
-  HEAD_URL = "git@github.com:#{HEAD_REPO}.git"
-
-  PR_NUMBER = '32'
-
 
   before(:each) do
     create_files(%w(.gitignore))
@@ -64,93 +55,74 @@ describe GitProc::PullRequest do
   end
 
 
-  describe "with PR #" do
-    def create_process(dir, opts)
-      GitProc::PullRequest.new(dir, opts.merge({:prNumber => PR_NUMBER}))
-    end
+  describe "checkout pull request" do
+    include PullRequestHelper
+
+    alias :lib :gitprocess
 
 
-    it "should checkout the branch for the pull request" do
+    before(:each) do
       gitprocess.config('gitProcess.github.authToken', 'sdfsfsdf')
       gitprocess.config('github.user', 'jdigger')
-      gitprocess.stub(:fetch).with(HEAD_REMOTE)
-      gitprocess.add_remote(HEAD_REMOTE, HEAD_URL)
-
-      data = basic_pull_request_data()
-      stub_get("https://api.github.com/repos/#{HEAD_REPO}/pulls/#{PR_NUMBER}", :body => data)
-
-      # Tests that:
-      #  * the branch is checked out from the HEAD branch of the pull
-      #    request and created by the same name
-      #  * the tracking for the new branch is set to the BASE branch
-      #    of the pull request
-      #
-      gitprocess.should_receive(:checkout).with(HEAD_BRANCH, :new_branch => "#{HEAD_REMOTE}/#{HEAD_BRANCH}")
-      gitprocess.should_receive(:branch).with(HEAD_BRANCH, :upstream => "#{HEAD_REMOTE}/#{BASE_BRANCH}")
-
-      gitprocess.runner
-    end
-
-  end
-
-
-  describe "with repo name and PR #" do
-    def create_process(dir, opts)
-      GitProc::PullRequest.new(dir, opts.merge({:prNumber => PR_NUMBER, :server => HEAD_REMOTE}))
     end
 
 
-    it "should checkout the branch for the pull request" do
-      BASE_REMOTE = 'sourcerepo'
-      BASE_REPO = 'source_repo'
-      BASE_URL = "git@github.com:#{BASE_REPO}.git"
+    describe "with PR #" do
 
-      gitprocess.config('gitProcess.github.authToken', 'sdfsfsdf')
-      gitprocess.config('github.user', 'jdigger')
-      gitprocess.should_receive(:fetch).with(HEAD_REMOTE)
-      gitprocess.should_receive(:fetch).with(BASE_REMOTE)
+      def pull_request
+        @pr ||= create_pull_request({})
+      end
 
-      gitprocess.add_remote(HEAD_REMOTE, HEAD_URL)
-      gitprocess.add_remote(BASE_REMOTE, BASE_URL)
 
-      data = basic_pull_request_data()
-      data[:base][:repo][:ssh_url] = BASE_URL
-      data[:base][:ref] = BASE_BRANCH
+      def create_process(dir, opts)
+        GitProc::PullRequest.new(dir, opts.merge({:prNumber => pull_request[:number]}))
+      end
 
-      stub_get("https://api.github.com/repos/#{HEAD_REPO}/pulls/#{PR_NUMBER}", :body => data)
 
-      # Tests that:
-      #  * the branch is checked out from the HEAD branch of the pull
-      #    request and created by the same name
-      #  * the tracking for the new branch is set to the BASE branch
-      #    of the pull request
-      #
-      gitprocess.should_receive(:checkout).with(HEAD_BRANCH, :new_branch => "#{HEAD_REMOTE}/#{HEAD_BRANCH}")
-      gitprocess.should_receive(:branch).with(HEAD_BRANCH, :upstream => "#{BASE_REMOTE}/#{BASE_BRANCH}")
+      it "should checkout the branch for the pull request" do
+        add_remote(:head)
+        stub_fetch(:head)
 
-      gitprocess.runner
+        stub_get_pull_request(pull_request)
+
+        expect_checkout_pr_head()
+        expect_upstream_set()
+
+        gitprocess.runner
+      end
+
     end
 
-  end
+
+    describe "with repo name and PR #" do
+
+      def pull_request
+        @pr ||= create_pull_request(:base_remote => 'sourcerepo', :base_repo => 'source_repo')
+      end
 
 
-  def basic_pull_request_data()
-    {
-        :number => PR_NUMBER,
-        :state => 'open',
-        :head => {
-            :ref => HEAD_BRANCH,
-            :repo => {
-                :ssh_url => HEAD_URL,
-            }
-        },
-        :base => {
-            :ref => BASE_BRANCH,
-            :repo => {
-                :ssh_url => HEAD_URL,
-            }
-        }
-    }
+      def create_process(dir, opts)
+        GitProc::PullRequest.new(dir, opts.merge({:prNumber => pull_request[:number],
+                                                  :server => pull_request[:head][:remote]}))
+      end
+
+
+      it "should checkout the branch for the pull request" do
+        add_remote(:head)
+        add_remote(:base)
+        stub_fetch(:head)
+        stub_fetch(:base)
+
+        stub_get_pull_request(pull_request)
+
+        expect_checkout_pr_head()
+        expect_upstream_set()
+
+        gitprocess.runner
+      end
+
+    end
+
   end
 
 end
