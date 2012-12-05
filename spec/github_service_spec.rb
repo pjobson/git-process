@@ -34,11 +34,6 @@ class GHS
   end
 
 
-  def pw_client
-    @pw_client ||= create_pw_client
-  end
-
-
   def client
     @client ||= create_client
   end
@@ -160,35 +155,35 @@ describe GitHubService do
     it "site should raise an error if remote.origin.url not set" do
       ghs.lib.config('remote.origin.url', '')
 
-      lambda { ghs.site }.should raise_error GitHubService::NoRemoteRepository
+      lambda { ghs.base_github_api_url_for_remote }.should raise_error GitHubService::NoRemoteRepository
     end
 
 
     it "site should not work for a garbage url address" do
       ghs.lib.add_remote('origin', 'garbage')
 
-      lambda { ghs.site }.should raise_error URI::InvalidURIError
+      lambda { ghs.base_github_api_url_for_remote }.should raise_error URI::InvalidURIError
     end
 
 
     it "site should work for an ssh-configured url address" do
       ghs.lib.add_remote('origin', 'git@github.myco.com:fooble')
 
-      ghs.site().should == 'https://github.myco.com'
+      ghs.base_github_api_url_for_remote.should == 'https://github.myco.com'
     end
 
   end
 
 
-  it "#git_url_to_api" do
+  it "#url_to_base_github_api_url" do
     ghs = GHS.new('tu', 'dfsdf')
 
-    ghs.git_url_to_api('ssh://git@github.myco.com/fooble').should == 'https://github.myco.com'
-    ghs.git_url_to_api('git://myco.com/jdigger/git-process.git').should == 'https://myco.com'
-    ghs.git_url_to_api('http://github.myco.com/fooble').should == 'http://github.myco.com'
-    ghs.git_url_to_api('http://tu@github.myco.com/fooble').should == 'http://github.myco.com'
-    ghs.git_url_to_api('https://github.myco.com/fooble').should == 'https://github.myco.com'
-    ghs.git_url_to_api('https://github.com/fooble').should == 'https://api.github.com'
+    ghs.url_to_base_github_api_url('ssh://git@github.myco.com/fooble').should == 'https://github.myco.com'
+    ghs.url_to_base_github_api_url('git://myco.com/jdigger/git-process.git').should == 'https://myco.com'
+    ghs.url_to_base_github_api_url('http://github.myco.com/fooble').should == 'http://github.myco.com'
+    ghs.url_to_base_github_api_url('http://tu@github.myco.com/fooble').should == 'http://github.myco.com'
+    ghs.url_to_base_github_api_url('https://github.myco.com/fooble').should == 'https://github.myco.com'
+    ghs.url_to_base_github_api_url('https://github.com/fooble').should == 'https://api.github.com'
   end
 
 
