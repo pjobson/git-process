@@ -97,4 +97,7 @@ module GitRepoHelper
     end
   end
 
+
+  alias :clone_repo :clone
+
 end
