@@ -50,18 +50,12 @@ module GitProc
 
 
     def repo_name
-      if @_repo_name.nil?
-        @_repo_name = lib_repo_name
-      end
-      @_repo_name
+      @_repo_name ||= lib_repo_name
     end
 
 
     def remote_name
-      if @_remote_name.nil?
-        @_remote_name = lib_remote_name
-      end
-      @_remote_name
+      @_remote_name ||= lib_remote_name
     end
 
 
