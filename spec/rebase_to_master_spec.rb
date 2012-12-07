@@ -1,6 +1,7 @@
 require 'git-process/rebase_to_master'
 require 'GitRepoHelper'
 require 'github_test_helper'
+require 'pull_request_helper'
 require 'webmock/rspec'
 require 'json'
 
@@ -107,31 +108,31 @@ describe GitProc::RebaseToMaster do
 
 
     describe "closing the pull request" do
+      include PullRequestHelper
+
+
+      def pull_request
+        @pr ||= create_pull_request(:pr_number => '987', :head_branch => 'fb', :base_branch => 'master')
+      end
+
 
       it "should work for an existing pull request" do
         stub_get('https://api.github.com/repos/test_repo/pulls?state=open',
-                 :body => [
-                     {:number => 987, :state => 'open', :html_url => 'test_url',
-                      :head => {:ref => 'fb'},
-                      :base => {:ref => 'master'}}
-                 ])
+                 :body => [pull_request])
+
+        closed_pr = pull_request.dup[:state] = 'closed'
         stub_patch('https://api.github.com/repos/test_repo/pulls/987',
                    :send => JSON({:state => 'closed'}),
-                   :body => [
-                       {:number => 987, :state => 'closed', :html_url => 'test_url',
-                        :head => {:ref => 'fb'},
-                        :base => {:ref => 'master'}}
-                   ])
+                   :body => [closed_pr])
 
         gitprocess.branch('fb', :base_branch => 'master')
 
-        gp = clone('fb')
+        gp = clone_repo('fb', 'test_repo')
         gp.config('gitProcess.github.authToken', 'test-token')
-        gp.config('remote.origin.url', 'git@github.com:test_repo.git')
         gp.config('github.user', 'test_user')
 
         rtm = GitProc::RebaseToMaster.new(gp.workdir, {:log_level => log_level})
-        rtm.stub(:fetch)
+        stub_fetch(:head, rtm)
         rtm.stub(:push)
         rtm.runner
       end
@@ -139,7 +140,7 @@ describe GitProc::RebaseToMaster do
 
       it "should not try when there is no auth token" do
         gitprocess.branch('fb', :base_branch => 'master')
-        gp = clone('fb')
+        gp = clone_repo('fb')
         gp.config('gitProcess.github.authToken', '')
         gp.config('remote.origin.url', 'git@github.com:test_repo.git')
         gp.config('github.user', 'test_user')
@@ -153,7 +154,7 @@ describe GitProc::RebaseToMaster do
 
       it "should not try when there is a file:// origin url" do
         gitprocess.branch('fb', :base_branch => 'master')
-        gp = clone('fb')
+        gp = clone_repo('fb')
         gp.config('gitProcess.github.authToken', 'test-token')
         gp.config('github.user', 'test_user')
 
@@ -179,7 +180,7 @@ describe GitProc::RebaseToMaster do
 
       gitprocess.branches['master'].delete!
 
-      gl = clone('int-br')
+      gl = clone_repo('int-br')
       gl.config('gitProcess.integrationBranch', 'int-br')
 
       gl.checkout('ab', :new_branch => 'origin/int-br')
@@ -210,7 +211,7 @@ describe GitProc::RebaseToMaster do
 
       it "should create it based on origin/master" do
         gitprocess.branch('fb', :base_branch => 'master')
-        clone('fb') do |gp|
+        clone_repo('fb') do |gp|
           gp.remove_feature_branch
           gp.branches.current.name.should == '_parking_'
         end
@@ -218,7 +219,7 @@ describe GitProc::RebaseToMaster do
 
 
       it "should move it to the new origin/master if it already exists and is clean" do
-        clone do |gp|
+        clone_repo do |gp|
           gp.branch('_parking_', :base_branch => 'origin/master')
           change_file_and_commit('a', '', gp)
 
@@ -233,7 +234,7 @@ describe GitProc::RebaseToMaster do
 
       it "should move it to the new origin/master if it already exists and changes are part of the current branch" do
         gitprocess.checkout('afb', :new_branch => 'master')
-        clone do |gp|
+        clone_repo do |gp|
           gp.checkout('_parking_', :new_branch => 'origin/master') do
             change_file_and_commit('a', '', gp)
           end
@@ -248,7 +249,7 @@ describe GitProc::RebaseToMaster do
 
 
       it "should move it out of the way if it has unaccounted changes on it" do
-        clone do |gp|
+        clone_repo do |gp|
           gp.checkout('_parking_', :new_branch => 'origin/master')
           change_file_and_commit('a', '', gp)
           gp.checkout('fb', :new_branch => 'origin/master')
@@ -266,7 +267,7 @@ describe GitProc::RebaseToMaster do
 
 
     it "should delete the old local branch when it has been merged into origin/master" do
-      clone do |gp|
+      clone_repo do |gp|
         change_file_and_commit('a', '', gp)
 
         gp.checkout('fb', :new_branch => 'origin/master')
@@ -281,7 +282,7 @@ describe GitProc::RebaseToMaster do
 
 
     it "should raise an error when the local branch has not been merged into origin/master" do
-      clone do |gp|
+      clone_repo do |gp|
         gp.checkout('fb', :new_branch => 'origin/master')
         change_file_and_commit('a', '', gp)
 
@@ -297,7 +298,7 @@ describe GitProc::RebaseToMaster do
 
       gitprocess.branch('fb', :base_branch => 'master')
 
-      clone('fb') do |gp|
+      clone_repo('fb') do |gp|
         gp.branches.include?('origin/fb').should be_true
         gp.remove_feature_branch
         gp.branches.include?('origin/fb').should be_false
@@ -314,7 +315,7 @@ describe GitProc::RebaseToMaster do
     it "should not try to close a pull request or remove remote branch" do
       gitprocess.branch('fb', :base_branch => 'master')
 
-      rtm = GitProc::RebaseToMaster.new(clone('fb').workdir, {:log_level => log_level, :keep => true})
+      rtm = GitProc::RebaseToMaster.new(clone_repo('fb').workdir, {:log_level => log_level, :keep => true})
       rtm.should_receive(:fetch)
       rtm.should_receive(:push).with('origin', rtm.branches.current, 'master')
       rtm.should_not_receive(:push).with('origin', nil, nil, :delete => 'fb')
@@ -329,7 +330,7 @@ describe GitProc::RebaseToMaster do
     it "should try to do an interactive rebase" do
       gitprocess.branch('fb', :base_branch => 'master')
 
-      rtm = GitProc::RebaseToMaster.new(clone('fb').workdir, {:log_level => log_level, :interactive => true})
+      rtm = GitProc::RebaseToMaster.new(clone_repo('fb').workdir, {:log_level => log_level, :interactive => true})
       rtm.should_receive(:fetch)
       rtm.should_receive(:rebase).with('origin/master', {})
       rtm.should_receive(:rebase).with('origin/master', :interactive => true)
