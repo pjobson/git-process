@@ -10,6 +10,7 @@ module PullRequestHelper
         :api_url => 'https://api.github.com',
         :pr_number => '32',
         :state => 'open',
+        :mergeable => 'true',
     }
     v.merge! opts
     v[:ssh_head_url] = "git@github.com:#{opts[:head_repo] || v[:head_repo]}.git" unless opts.has_key?(:ssh_head_url)
@@ -22,6 +23,7 @@ module PullRequestHelper
     {
         :number => opts[:pr_number],
         :state => opts[:state],
+        :mergeable => opts[:mergeable],
         :head => {
             :remote => opts[:head_repo], # pseudo-property for testing
             :ref => opts[:head_branch],

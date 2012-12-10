@@ -78,6 +78,25 @@ DESC
     parser.opt :interactive, "Do an interactive rebase before pushing to the server.", :short => :i, :default => false
   end
 
+
+  #
+  # @param [Hash] opts
+  # @param [Array<String>] argv
+  def post_parse(opts, argv)
+    if argv.length > 0
+      arg = argv.shift
+      if /^\d+$/ =~ arg
+        opts[:prNumber] = arg
+      elsif /^(.*)\/(\d+)$/ =~ arg
+        m = /^(.*)\/(\d+)$/.match(arg)
+        opts[:server] = m[1]
+        opts[:prNumber] = m[2]
+      else
+        # TODO Do what here?
+      end
+    end
+  end
+
 end
 
 GitProc::RebaseToMaster.new('.', ToMasterOptions.new.parse_cli(File.basename(__FILE__), ARGV)).run

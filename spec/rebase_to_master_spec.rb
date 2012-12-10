@@ -341,4 +341,75 @@ describe GitProc::RebaseToMaster do
 
   end
 
+
+  describe "pull request" do
+    include PullRequestHelper
+
+    alias :lib :gitprocess
+
+
+    before(:each) do
+      gitprocess.config('gitProcess.github.authToken', 'sdfsfsdf')
+      gitprocess.config('github.user', 'jdigger')
+    end
+
+
+    describe "with PR #" do
+
+      def pull_request
+        @pr ||= create_pull_request(:mergeable => 'true')
+      end
+
+
+      def create_process(dir, opts)
+        GitProc::RebaseToMaster.new(dir, opts.merge({:prNumber => pull_request[:number]}))
+      end
+
+
+      it "should to-master the branch for the pull request" do
+        add_remote(:head)
+        stub_fetch(:head)
+
+        #stub_get_pull_request(pull_request)
+
+        #expect_checkout_pr_head()
+        #expect_upstream_set()
+
+        #gitprocess.runner
+      end
+
+    end
+
+
+    #describe "with repo name and PR #" do
+    #
+    #  def pull_request
+    #    @pr ||= create_pull_request(:base_remote => 'sourcerepo', :base_repo => 'source_repo')
+    #  end
+    #
+    #
+    #  def create_process(dir, opts)
+    #    GitProc::RebaseToMaster.new(dir, opts.merge({:prNumber => pull_request[:number],
+    #                                                 :server => pull_request[:head][:remote]}))
+    #  end
+    #
+    #
+    #  it "should checkout the branch for the pull request" do
+    #    add_remote(:head)
+    #    add_remote(:base)
+    #    stub_fetch(:head)
+    #    stub_fetch(:base)
+    #
+    #    stub_get_pull_request(pull_request)
+    #
+    #    expect_checkout_pr_head()
+    #    expect_upstream_set()
+    #
+    #    gitprocess.runner
+    #  end
+    #
+    #end
+
+  end
+
 end

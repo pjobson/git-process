@@ -11,6 +11,7 @@
 # limitations under the License.
 
 require 'git-process/git_process'
+require 'git-process/pull_request'
 require 'git-process/git_rebase_error'
 require 'git-process/git_process_error'
 require 'git-process/parked_changes_error'
@@ -25,6 +26,12 @@ module GitProc
     def initialize(dir, opts)
       @keep = opts[:keep]
       @interactive = opts[:interactive]
+      @base_branch = opts[:base_branch]
+      @head_branch = opts[:head_branch]
+      @_repo_name = opts[:repo_name]
+      @_remote_name = opts[:server]
+      @pr_number = opts[:prNumber]
+      @gitproc_pullrequest = GitProc::PullRequest.new(dir, opts)
       super
     end
 
@@ -38,6 +45,26 @@ module GitProc
 
 
     def runner
+      if @pr_number
+        to_master_pull_request
+      else
+        to_master_branch
+      end
+    end
+
+
+    def to_master_pull_request
+      checkout_pull_request
+      to_master_branch
+    end
+
+
+    def checkout_pull_request
+      #@gitproc_pullrequest.checkout_pull_request
+    end
+
+
+    def to_master_branch
       if has_a_remote?
         fetch(server_name)
         proc_rebase(integration_branch)
@@ -51,6 +78,20 @@ module GitProc
       else
         proc_rebase(integration_branch)
       end
+    end
+
+
+    alias :lib_repo_name :repo_name
+    alias :lib_remote_name :remote_name
+
+
+    def repo_name
+      @_repo_name ||= lib_repo_name
+    end
+
+
+    def remote_name
+      @_remote_name ||= lib_remote_name
     end
 
 
