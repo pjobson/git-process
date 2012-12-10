@@ -36,7 +36,8 @@ describe GitProc::PullRequest do
       gitprocess.config('gitProcess.integrationBranch', 'develop')
       gitprocess.add_remote('origin', 'git@github.com:jdigger/git-process.git')
 
-      gitprocess.stub(:create_pull_request_client).with('origin', 'jdigger/git-process').and_return(pr_client)
+      GitProc::PullRequest.stub(:create_pull_request_client).and_return(pr_client)
+      #PullRequest.stub(:create_pull_request_client).with(anything, 'origin', 'jdigger/git-process').and_return(pr_client)
       gitprocess.should_receive(:push)
       pr_client.should_receive(:create).with('develop', 'master', 'master', '')
 
